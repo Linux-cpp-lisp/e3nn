@@ -168,12 +168,17 @@ def codegen_tensor_product(
 
         # We didn't make this instruction specialized, so do the general case
         key = (ins.i_in1, ins.i_in2, ins.connection_mode[:2])
-        if key not in xx_dict:
-            if ins.connection_mode[:2] == 'uv':
-                xx_dict[key] = torch.einsum('zui,zvj->zuvij', x1_out, x2_out)
-            if ins.connection_mode[:2] == 'uu':
-                xx_dict[key] = torch.einsum('zui,zuj->zuij', x1_out, x2_out)
-        xx = xx_dict[key]
+        # if key not in xx_dict:
+        #     if ins.connection_mode[:2] == 'uv':
+        #         xx_dict[key] = torch.einsum('zui,zvj->zuvij', x1_out, x2_out)
+        #     if ins.connection_mode[:2] == 'uu':
+        #         xx_dict[key] = torch.einsum('zui,zuj->zuij', x1_out, x2_out)
+        # xx = xx_dict[key]
+
+        if ins.connection_mode[:2] == 'uv':
+            xx = torch.einsum('zui,zvj->zuvij', x1_out, x2_out)
+        if ins.connection_mode[:2] == 'uu':
+            xx = torch.einsum('zui,zuj->zuij', x1_out, x2_out)
 
         key = (mul_ir_in1.ir.l, mul_ir_in2.ir.l, mul_ir_out.ir.l)
         if key not in w3j:

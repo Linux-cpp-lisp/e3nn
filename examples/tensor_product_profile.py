@@ -78,14 +78,16 @@ def main():
         called_num[0] += 1
 
     with torch.profiler.profile(
-        activities=[
-            torch.profiler.ProfilerActivity.CPU,
-            torch.profiler.ProfilerActivity.CUDA],
+        activities=(
+            [torch.profiler.ProfilerActivity.CPU] + \
+            ([torch.profiler.ProfilerActivity.CUDA] if args.cuda else [])
+        ),
         schedule=torch.profiler.schedule(
             wait=1,
             warmup=args.w,
-            active=args.n),
-        on_trace_ready=trace_handler
+            active=args.n
+        ),
+        on_trace_ready=trace_handler,
     ) as p:
         for _ in range(1 + args.w + args.n):
             out = tp(*next(inputs))

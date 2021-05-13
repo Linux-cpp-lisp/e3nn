@@ -10,7 +10,7 @@ from e3nn.util.codegen import CodeGenMixin
 from e3nn.util import prod
 
 from ._instruction import Instruction
-from ._codegen import codegen_tensor_product
+from ._codegen_sparse import codegen_tensor_product
 
 
 @compile_mode('script')

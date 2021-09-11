@@ -33,6 +33,8 @@ def codegen_tensor_product(
     specialized_code: bool = True,
     optimize_einsums: bool = True,
 ) -> Tuple[fx.GraphModule, fx.GraphModule]:
+    assert all(isinstance(i, Instruction) for i in instructions)
+
     graph_out = fx.Graph()
     graph_right = fx.Graph()
 

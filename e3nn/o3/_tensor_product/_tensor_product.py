@@ -11,6 +11,7 @@ from e3nn.util import prod
 
 from ._instruction import Instruction
 from ._codegen import codegen_tensor_product
+from ._codegen_fused import codegen_tensor_product_fused, FusedInstruction
 
 
 @compile_mode('script')
@@ -257,7 +258,7 @@ class TensorProduct(CodeGenMixin, torch.nn.Module):
         del opt_defaults
 
         # Generate the actual tensor product code
-        graphmod_out, graphmod_right = codegen_tensor_product(
+        graphmod_out, graphmod_right = codegen_tensor_product_fused(
             self.irreps_in1,
             self.in1_var,
             self.irreps_in2,

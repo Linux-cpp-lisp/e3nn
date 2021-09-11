@@ -49,11 +49,12 @@ def fuse_instructions(
     irreps_out: o3.Irreps,
     instructions: List[Instruction]
 ) -> List[FusedInstruction]:
-    print(instructions)
+    print(f"Initially {len(instructions)} instructions")
     # To fuse, it must be that:
     # - their i_in1s are consecutive
     # - their i_in2s are consecutive
     # - their connection mode, weightedness, and path_shape are the same
+    old_inst = instructions
     instructions = list(instructions)  # copy
     fused_instructions: List[FusedInstruction] = []
 
@@ -72,6 +73,8 @@ def fuse_instructions(
                 cur_start = i
                 cur_l = ir.l
                 cur_mul = mul
+        # The final one is always a break
+        out.append((cur_start, i))
         return out
 
     in1_ranges = _irrep_range(irreps_in1)
@@ -82,19 +85,18 @@ def fuse_instructions(
     # TODO: this currently misses "partial" rectangular products that could still be accelerated
     def _fuse_key(ins: Instruction) -> tuple:
         # By checking irrep ranges we already know that path shapes are compat
-        return (ins.connection_mode, ins.has_weight)
+        return (ins.connection_mode, ins.has_weight, irreps_out[ins.i_out].ir.l)
     have_products = defaultdict(set)
     for ins in instructions:
         have_products[_fuse_key(ins)].add((ins.i_in1, ins.i_in2))
-    fusion_groups = []
+
     for in1_range, in2_range in itertools.product(in1_ranges, in2_ranges):
         # iterate through all paths that would be needed to make this happen
         # and check if they are present
-        want_products = set(zip(
+        want_products = set(itertools.product(
             range(in1_range[0], in1_range[1] + 1),
             range(in2_range[0], in2_range[1] + 1)
         ))
-
         # Now check each set of fusable instructions
         for this_fuse_key, these_have_products in have_products.items():
             if not want_products.issubset(these_have_products):
@@ -156,6 +158,8 @@ def fuse_instructions(
             has_weight=ins.has_weight,
             base_path_shape=ins.path_shape
         ))
+
+    print(f"After fusion, {len(fused_instructions)} instructions")
 
     return fused_instructions
 
@@ -322,6 +326,10 @@ def codegen_tensor_product_fused(
             if ins.connection_mode[:2] == 'uu':
                 xx_dict[key] = torch.einsum(f'z{p1}ui,z{p2}uj->z{p1}{p2}uij', x1_out, x2_out)
         xx = xx_dict[key]
+        xx_label = {
+            "uv": "uv",
+            "uu": "u"
+        }[ins.connection_mode[:2]]
 
         # Create a proxy & request for the relevant wigner w3j
         # If not used (because of specialized code), will get removed later.
@@ -336,35 +344,35 @@ def codegen_tensor_product_fused(
         if ins.has_weight:
             if specialized_code and key == (0, 0, 0):
                 ein_out = torch.einsum(
-                    f"{z}{p1}{p2}{w_subs},z{p2}{u},z{p2}{v}->{p1}{p2}z{w}",
+                    f"{z}{p1}{p2}{w_subs},z{p1}{u},z{p2}{v}->z{p1}{p2}{w}",
                     w_out,
                     x1_out.squeeze(-1),
                     x2_out.squeeze(-1)
                 )
             elif specialized_code and mul_ir_in1.ir.l == 0:
                 ein_out = torch.einsum(
-                    f"{z}{p1}{p2}{w_subs},z{p2}{u},z{p2}{v}j->{p1}{p2}z{w}j",
+                    f"{z}{p1}{p2}{w_subs},z{p1}{u},z{p2}{v}j->z{p1}{p2}{w}j",
                     w_out,
                     x1_out.squeeze(-1),
                     x2_out
                 )
             elif specialized_code and mul_ir_in2.ir.l == 0:
                 ein_out = torch.einsum(
-                f"{z}{p1}{p2}{w_subs},z{p2}{u}i,z{p2}{v}->{p1}{p2}z{w}i",
+                f"{z}{p1}{p2}{w_subs},z{p1}{u}i,z{p2}{v}->z{p1}{p2}{w}i",
                     w_out,
                     x1_out,
                     x2_out.squeeze(-1)
                 )
             elif specialized_code and mul_ir_out.ir.l == 0:
                 ein_out = torch.einsum(
-                    f"{z}{p1}{p2}{w_subs},z{p2}{u}i,z{p2}{v}i->{p1}{p2}z{w}",
+                    f"{z}{p1}{p2}{w_subs},z{p1}{u}i,z{p2}{v}i->z{p1}{p2}{w}",
                     w_out,
                     x1_out,
                     x2_out
                 ) * sqrt(mul_ir_in1.ir.dim)**exp
             else:
                 ein_out = torch.einsum(
-                    f"{z}{p1}{p2}{w_subs},ijk,z{p1}{p2}{ins.connection_mode[:2]}ij->{p1}{p2}z{w}k",
+                    f"{z}{p1}{p2}{w_subs},ijk,z{p1}{p2}{xx_label}ij->z{p1}{p2}{w}k",
                     w_out,
                     w3j_out,
                     xx
@@ -372,38 +380,38 @@ def codegen_tensor_product_fused(
         else:
             if specialized_code and key == (0, 0, 0):
                 ein_out = torch.einsum(
-                    f"z{p2}{u},z{p2}{v}->{p1}{p2}z{w}",
+                    f"z{p1}{u},z{p2}{v}->z{p1}{p2}{w}",
                     x1_out.squeeze(-1),
                     x2_out.squeeze(-1)
                 )
             elif specialized_code and mul_ir_in1.ir.l == 0:
                 ein_out = torch.einsum(
-                    f"z{p2}{u},z{p2}{v}j->{p1}{p2}z{w}j",
+                    f"z{p1}{u},z{p2}{v}j->z{p1}{p2}{w}j",
                     x1_out.squeeze(-1),
                     x2_out
                 )
             elif specialized_code and mul_ir_in2.ir.l == 0:
                 ein_out = torch.einsum(
-                f"z{p2}{u}i,z{p2}{v}->{p1}{p2}z{w}i",
+                f"z{p1}{u}i,z{p2}{v}->z{p1}{p2}{w}i",
                     x1_out,
                     x2_out.squeeze(-1)
                 )
             elif specialized_code and mul_ir_out.ir.l == 0:
                 ein_out = torch.einsum(
-                    f"z{p2}{u}i,z{p2}{v}i->{p1}{p2}z{w}",
+                    f"z{p1}{u}i,z{p2}{v}i->z{p1}{p2}{w}",
                     x1_out,
                     x2_out
                 ) * sqrt(mul_ir_in1.ir.dim)**exp
             else:
                 ein_out = torch.einsum(
-                    f"ijk,z{p1}{p2}{ins.connection_mode[:2]}ij->{p1}{p2}z{w}k",
+                    f"ijk,z{p1}{p2}{xx_label}ij->z{p1}{p2}{w}k",
                     w3j_out,
                     xx
                 )
 
         # Extract individual paths and normalize them
         # TODO: check if pqz or zpq is better perf, must change above too
-        ein_out = ein_out.reshape(ins.i_in1_num, ins.i_in2_num, batch_out, mul_ir_out.dim)
+        ein_out = ein_out.reshape(batch_out, ins.i_in1_num, ins.i_in2_num, mul_ir_out.dim)
         for fuse_i1, fuse_i2 in itertools.product(range(ins.i_in1_num), range(ins.i_in2_num)):
             # Compute the normalization
             i_out = ins.is_out[fuse_i1][fuse_i2]
@@ -422,7 +430,7 @@ def codegen_tensor_product_fused(
                 'uvuv': 1,
             }[ins.connection_mode])
             # Extract the path:
-            out_list_out[i_out].append(alpha * ein_out[fuse_i1, fuse_i2])
+            out_list_out[i_out].append(alpha * ein_out[:, fuse_i1, fuse_i2])
 
         # Close the profiler block
         graph_out.call_function(torch.ops.profiler._record_function_exit, (handle_out,))
@@ -479,8 +487,6 @@ def codegen_tensor_product_fused(
         constants_root.register_buffer(wkey, wmat)
     graphmod_out = fx.GraphModule(constants_root, graph_out, class_name="tp_forward")
     graphmod_right = fx.GraphModule({}, graph_right, class_name="tp_right")
-
-    breakpoint()
 
     # == Optimize ==
     # TODO: when eliminate_dead_code() is in PyTorch stable, use that

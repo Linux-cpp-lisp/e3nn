@@ -187,7 +187,8 @@ class TensorProduct(CodeGenMixin, torch.nn.Module):
         internal_weights: Optional[bool] = None,
         shared_weights: Optional[bool] = None,
         _specialized_code: Optional[bool] = None,
-        _optimize_einsums: Optional[bool] = None
+        _optimize_einsums: Optional[bool] = None,
+        _fuse_instructions: Optional[bool] = None
     ):
         # === Setup ===
         super().__init__()
@@ -255,10 +256,15 @@ class TensorProduct(CodeGenMixin, torch.nn.Module):
         opt_defaults = e3nn.get_optimization_defaults()
         self._specialized_code = _specialized_code if _specialized_code is not None else opt_defaults['specialized_code']
         self._optimize_einsums = _optimize_einsums if _optimize_einsums is not None else opt_defaults['optimize_einsums']
+        self._fuse_instructions = _fuse_instructions if _fuse_instructions is not None else opt_defaults['fuse_instructions']
         del opt_defaults
 
         # Generate the actual tensor product code
-        graphmod_out, graphmod_right = codegen_tensor_product_fused(
+        if self._fuse_instructions:
+            codegen = codegen_tensor_product_fused
+        else:
+            codegen = codegen_tensor_product
+        graphmod_out, graphmod_right = codegen(
             self.irreps_in1,
             self.in1_var,
             self.irreps_in2,

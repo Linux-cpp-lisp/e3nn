@@ -274,8 +274,9 @@ def test_jit(l1, p1, l2, p2, lo, po, mode, weight, special_code, opt_ein):
 @pytest.mark.parametrize('l1, p1, l2, p2, lo, po, mode, weight', random_params(n=4))
 @pytest.mark.parametrize('special_code', [True, False])
 @pytest.mark.parametrize('opt_ein', [True, False])
+@pytest.mark.parametrize('fuse', [True, False])
 @pytest.mark.parametrize('jit', [True, False])
-def test_optimizations(l1, p1, l2, p2, lo, po, mode, weight, special_code, opt_ein, jit, float_tolerance):
+def test_optimizations(l1, p1, l2, p2, lo, po, mode, weight, special_code, opt_ein, fuse, jit, float_tolerance):
     orig_tp = make_tp(
         l1, p1, l2, p2, lo, po, mode, weight,
         _specialized_code=False,
@@ -284,7 +285,8 @@ def test_optimizations(l1, p1, l2, p2, lo, po, mode, weight, special_code, opt_e
     opt_tp = make_tp(
         l1, p1, l2, p2, lo, po, mode, weight,
         _specialized_code=special_code,
-        _optimize_einsums=opt_ein
+        _optimize_einsums=opt_ein,
+        _fuse_instructions=fuse
     )
     # We don't use state_dict here since that contains things like wigners that can differ between optimized and unoptimized TPs
     with torch.no_grad():
@@ -310,11 +312,12 @@ def test_optimizations(l1, p1, l2, p2, lo, po, mode, weight, special_code, opt_e
         opt_tp(x1, x2),
         atol=float_tolerance  # numerical optimizations can cause meaningful numerical error by changing operations
     )
-    assert torch.allclose(
-        orig_tp.right(x2),
-        opt_tp.right(x2),
-        atol=float_tolerance
-    )
+    if not fuse:
+        assert torch.allclose(
+            orig_tp.right(x2),
+            opt_tp.right(x2),
+            atol=float_tolerance
+        )
 
     # We also test .to(), even if only with a dtype, to ensure that various optimizations still always store constants in correct ways
     other_dtype = next(

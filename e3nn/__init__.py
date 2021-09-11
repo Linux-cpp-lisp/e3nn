@@ -5,7 +5,8 @@ from typing import Dict
 
 _OPT_DEFAULTS: Dict[str, bool] = dict(
     specialized_code=True,
-    optimize_einsums=True
+    optimize_einsums=True,
+    fuse_instructions=False
 )
 
 

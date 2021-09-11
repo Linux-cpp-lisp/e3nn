@@ -27,7 +27,7 @@ def main():
         prog="tensor_product_benchmark"
     )
     parser.add_argument("--jit", type=t_or_f, default=True)
-    parser.add_argument("--irreps", type=str, default="8x0e + 8x1e + 8x2e + 8x3o")
+    parser.add_argument("--irreps", type=str, default="8x0e + 8x0o + 8x1e + 8x1o + 8x2e + 8x2o")
     parser.add_argument("--irreps-in1", type=str, default=None)
     parser.add_argument("--irreps-in2", type=str, default=None)
     parser.add_argument("--irreps-out", type=str, default=None)

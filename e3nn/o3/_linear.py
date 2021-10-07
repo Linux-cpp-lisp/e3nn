@@ -11,7 +11,7 @@ from e3nn.util import prod
 from e3nn.util.codegen import CodeGenMixin
 from e3nn.util.jit import compile_mode
 
-from ._tensor_product._codegen import _sum_tensors
+from ._tensor_product._codegen_default import _sum_tensors
 
 
 class Instruction(NamedTuple):

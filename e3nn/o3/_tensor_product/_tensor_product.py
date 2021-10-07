@@ -186,7 +186,7 @@ class TensorProduct(CodeGenMixin, torch.nn.Module):
         internal_weights: Optional[bool] = None,
         shared_weights: Optional[bool] = None,
         _specialized_code: Optional[bool] = None,
-        _optimize_einsums: Optional[bool] = None
+        _optimize_einsums: Optional[bool] = None  # TODO: optimization options dict
     ):
         # === Setup ===
         super().__init__()

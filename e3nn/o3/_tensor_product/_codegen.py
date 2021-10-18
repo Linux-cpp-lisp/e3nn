@@ -26,9 +26,13 @@ def codegen_tensor_product(
     shared_weights: bool = False,
     compile_right: bool = True,
     specialized_code: bool = True,
-    optimize_einsums: bool = True,
+    optimize_einsums: bool = True,  # TODO: generic optimization options dict!
 ) -> Tuple[fx.GraphModule, fx.GraphModule]:
     """Central codegen method that dispatches to specific implementations based on options."""
+    # preprocess commands
+    # We produce no code for empty instructions
+    instructions = [ins for ins in instructions if 0 not in ins.path_shape]
+    # make dict
     kwargs = dict(
         irreps_in1=irreps_in1,
         in1_var=in1_var,
@@ -41,6 +45,7 @@ def codegen_tensor_product(
         shared_weights=shared_weights,
         specialized_code=specialized_code
     )
+    # codegen:
     graphmod_out = codegen_strided_tensor_product_forward(**kwargs)
     if graphmod_out is None:
         # fallback to default

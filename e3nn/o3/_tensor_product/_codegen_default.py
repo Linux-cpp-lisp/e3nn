@@ -45,9 +45,6 @@ def codegen_default_tensor_product_forward(
         size_out = torch.broadcast_tensors(empty_out.expand(x1s_out.shape[:-1]), empty_out.expand(x2s_out.shape[:-1]), empty_out.expand(ws_out.shape[:-1]))[0].shape
 
     # = Short-circut for zero dimensional =
-    # We produce no code for empty instructions
-    instructions = [ins for ins in instructions if 0 not in ins.path_shape]
-
     if len(instructions) == 0:
         out_out = x1s_out.new_zeros(size_out + (irreps_out.dim,))
 

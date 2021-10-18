@@ -15,6 +15,7 @@ class StridedLayout:
     base_irreps: Irreps
     pad_to_multiple: int
     dim: int
+    base_dim: int
     mul: int
 
     def __init__(self, irreps: Irreps, pad_to_multiple: int = 1):
@@ -28,9 +29,9 @@ class StridedLayout:
         self.pad_to_multiple = pad_to_multiple
         assert self.pad_to_multiple in (1, 2, 4, 8)
 
-        base_dim = int(math.ceil(self.base_irreps.dim / self.pad_to_multiple) * self.pad_to_multiple)
-        pad_by = base_dim - self.base_irreps.dim
-        self.dim = base_dim * self.mul
+        self.base_dim = int(math.ceil(self.base_irreps.dim / self.pad_to_multiple) * self.pad_to_multiple)
+        pad_by = self.base_dim - self.base_irreps.dim
+        self.dim = self.base_dim * self.mul
 
         # indexes to convert
         self.indexes_to_strided = torch.zeros(self.dim, dtype=torch.long)

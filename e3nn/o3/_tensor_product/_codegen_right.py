@@ -1,7 +1,6 @@
 from math import sqrt
-from typing import List, Tuple
+from typing import List
 
-from opt_einsum_fx import jitable, optimize_einsums_full
 import torch
 from torch import fx
 
@@ -39,9 +38,6 @@ def codegen_default_tensor_product_right(
         size_right = torch.broadcast_tensors(empty_right.expand(x2s_right.shape[:-1]), empty_right.expand(ws_right.shape[:-1]))[0].shape
 
     # = Short-circut for zero dimensional =
-    # We produce no code for empty instructions
-    instructions = [ins for ins in instructions if 0 not in ins.path_shape]
-
     if len(instructions) == 0:
         out_right = x2s_right.new_zeros(size_right + (irreps_in1.dim, irreps_out.dim,))
 

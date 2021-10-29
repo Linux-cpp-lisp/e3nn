@@ -40,6 +40,9 @@ def codegen_strided_tensor_product_forward(
     has_weight = instructions[0].has_weight
     if not all(ins.has_weight == has_weight for ins in instructions):
         return None
+    if not has_weight:
+        # TODO: unweighted is not yet supported
+        return None
 
     # Make the big w3j
     w3j_index = []
@@ -114,6 +117,8 @@ def codegen_strided_tensor_product_forward(
         size=(len(instructions) * layout_out.base_dim, layout_in1.base_dim * layout_in2.base_dim),
     ).to_dense()
     # TODO: support use of sparse w3j
+    # for now, in dense, must shape it:
+    w3j = w3j.reshape(len(instructions), layout_out.base_dim, layout_in1.base_dim, layout_in2.base_dim).contiguous()
 
     # Generate the mixer
     u, v, w = connection_mode
@@ -147,19 +152,20 @@ def codegen_strided_tensor_product_forward(
     batch_shape = x1s_out.shape[:-1]
 
     # convert to strided
-    x1s_out = x1s_out.view(-1, irreps_in1.dim)[:, in1_convert].view(-1, layout_in1.mul, layout_in1.base_dim)
-    x2s_out = x2s_out.view(-1, irreps_in2.dim)[:, in2_convert].view(-1, layout_in2.mul, layout_in2.base_dim)
+    x1s_out = x1s_out.view(-1, irreps_in1.dim)[:, in1_convert].reshape(-1, layout_in1.mul, layout_in1.base_dim)
+    x2s_out = x2s_out.view(-1, irreps_in2.dim)[:, in2_convert].reshape(-1, layout_in2.mul, layout_in2.base_dim)
+
     ws_out = ws_out.reshape(weight_shape)
 
     # do the einsum
     # has shape zwk
     out = torch.einsum(einstr, ws_out, x1s_out, x2s_out, w3j_proxy)
-    out = out.view(-1, layout_out.dim)
+    out = out.reshape(-1, layout_out.dim)
     out = out[:, out_convert]
     # bring back batch shape
-    out = out.view(batch_shape + (irreps_out.dim,))
+    out = out.reshape(batch_shape + (irreps_out.dim,))
 
-    graph_out.output(out)
+    graph_out.output(out.node)
 
     # check graphs
     graph_out.lint()

@@ -74,9 +74,9 @@ def main():
     tp = tp.to(device=device)
     assert len(tp.instructions) > 0, "Bad irreps, no instructions"
     print(f"Tensor product: {tp}")
-    print("Instructions:")
-    for ins in tp.instructions:
-        print(f"  {ins}")
+    # print("Instructions:")
+    # for ins in tp.instructions:
+    #     print(f"  {ins}")
 
     # from https://pytorch.org/docs/master/_modules/torch/utils/benchmark/utils/timer.html#Timer.timeit
     warmup = max(int(args.n // 100), 1)
